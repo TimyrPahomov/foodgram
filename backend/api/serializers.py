@@ -108,21 +108,17 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def validate(self, data):
-        username = data['username']
+        username = data.get('username')
+        email = data.get('email')
         if User.objects.filter(username=username).exists():
             raise serializers.ValidationError(
                 'Пользователь с таким username уже существует.'
             )
+        if User.objects.filter(email=email).exists():
+            raise serializers.ValidationError(
+                {'Пользователь с таким email уже существует.'}
+            )
         return data
-
-    def create(self, validated_data):
-        user = User(
-            email=validated_data['email'],
-            username=validated_data['username']
-        )
-        user.set_password(validated_data['password'])
-        user.save()
-        return user
 
 
 class RecipeSerializer(serializers.ModelSerializer):
