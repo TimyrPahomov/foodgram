@@ -3,8 +3,7 @@ from django.core.validators import RegexValidator
 from django.db import models
 
 from utils.constants import (EMAIL_MAX_LENGTH, MAX_REPR_LENGTH,
-                             PASSWORD_MAX_LENGTH, USERNAME_MAX_LENGTH,
-                             USERNAME_REGEX)
+                             USERNAME_MAX_LENGTH, USERNAME_REGEX)
 
 
 class FoodgramUser(AbstractUser):
@@ -35,11 +34,11 @@ class FoodgramUser(AbstractUser):
         'Фамилия пользователя',
         max_length=USERNAME_MAX_LENGTH
     )
-    password = models.CharField('Пароль',
-                                max_length=PASSWORD_MAX_LENGTH)
+    password = models.TextField('Пароль')
     avatar = models.ImageField(
         'Аватар пользователя',
         upload_to='users/avatars/',
+        blank=True,
         null=True,
         default=None
     )

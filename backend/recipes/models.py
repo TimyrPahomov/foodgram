@@ -113,8 +113,6 @@ class Recipe(models.Model):
     """Модель Рецепта."""
 
     author = models.ForeignKey(User, on_delete=models.CASCADE)
-    #is_favorited = models.BooleanField('В избранном', default=False)
-    #is_in_shopping_cart = models.BooleanField('В корзине', default=False)
     name = models.CharField(
         'Название',
         max_length=RECIPE_NAME_MAX_LENGTH,
@@ -152,3 +150,63 @@ class Recipe(models.Model):
 
     def __str__(self):
         return self.name[:MAX_REPR_LENGTH]
+
+
+class UserRecipeModel(models.Model):
+    """Абстрактная модель. Добавляет поля user и recipe."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+    )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{self.user} - {self.recipe}'
+
+
+class Favorite(UserRecipeModel):
+    """Модель Избранного."""
+
+    class Meta(UserRecipeModel.Meta):
+        verbose_name = 'избранный рецепт'
+        verbose_name_plural = 'Избранные рецепты'
+
+
+class ShoppingCart(UserRecipeModel):
+    """Модель Списка покупок."""
+
+    class Meta(UserRecipeModel.Meta):
+        verbose_name = 'список покупок'
+        verbose_name_plural = 'Списки покупок'
+
+
+class Follow(models.Model):
+    """Модель Подписки."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE)
+
+    following = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='follows')
+
+    class Meta:
+        verbose_name = 'подписка'
+        verbose_name_plural = 'Подписки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'following'],
+                name='unique_user_following'
+            ),
+            models.CheckConstraint(
+                check=~models.Q(user__exact=models.F('following')),
+                name='follow_user_not_exact_following'
+            ),
+        ]
