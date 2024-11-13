@@ -1,19 +1,26 @@
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, permissions, status, viewsets
+from django.http import HttpResponse
+from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 
+from api.filter import RecipeFilter, NameSearchFilter
 from api.permissions import UpdateDeletePermission
-from api.serializers import (IngredientReadSerializer, RecipeSerializer,
+from api.renderers import TextIngredientDataRenderer
+from api.serializers import (FollowSerializer, RecipeIngredients,
+                             IngredientSerializer,
+                             IngredientReadSerializer, RecipeSerializer,
                              RecipeMiniSerializer, RecipeReadSerializer,
                              TagSerializer, UserAvatarSerializer,
                              UserCreateSerializer,
                              UserPasswordChangeSerializer,
-                             UserWithRecipeSerializer, UserSerializer)
+                             UserFollowSerializer, UserSerializer)
 from recipes.models import (Favorite, Follow, Ingredient,
                             Recipe, ShoppingCart, Tag, User)
 from utils.constants import (AVATAR_PATH, FAVORITE_PATH, PASSWORD_CHANGE_PATH,
-                             SHOPPING_CART_PATH, SUBSCRIBE_PATH, USER_PROFILE)
+                             RECIPE_LINK_PATH, SHOPPING_CART_PATH,
+                             SUBSCRIBE_PATH, SUBSCRIPTIONS_PATH, USER_PROFILE)
 
 
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -22,8 +29,9 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientReadSerializer
     permission_classes = (permissions.AllowAny,)
-    filter_backends = (filters.SearchFilter,)
+    filter_backends = (NameSearchFilter,)
     search_fields = ('^name',)
+    pagination_class = None
 
 
 class TagViewSet(viewsets.ReadOnlyModelViewSet):
@@ -40,15 +48,34 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     queryset = Recipe.objects.all()
     filter_backends = (DjangoFilterBackend,)
+    filterset_class = RecipeFilter
     permission_classes = (UpdateDeletePermission,)
+    pagination_class = LimitOffsetPagination
     http_method_names = ['get', 'post', 'patch', 'delete']
-    filterset_fields = ('author', 'tags__name')
 
     def get_serializer_class(self):
         """Возвращает сериализатор в зависимости от метода запроса."""
         if self.request.method in permissions.SAFE_METHODS:
             return RecipeReadSerializer
         return RecipeSerializer
+
+    @action(
+        detail=False, methods=['get'], url_path='download_shopping_cart',
+        renderer_classes=[TextIngredientDataRenderer],
+        permission_classes=(permissions.IsAuthenticated,)
+    )
+    def download_shopping_cart(self, request):
+        """Отвечает за выгрузку списка покупок."""
+        queryset = RecipeIngredients.objects.filter(
+            recipe__shoppingcart__user=self.request.user
+        )
+        file_name = "Список ингредиентов"
+        serializer = IngredientSerializer(
+            queryset,
+            context={'request': request},
+            many=True
+        )
+        return Response(serializer.data, headers={"Content-Disposition": f'attachment; filename="{file_name}"'})
 
     @action(
         detail=True, methods=['post', 'delete'], url_path=FAVORITE_PATH,
@@ -128,12 +155,22 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(
+        detail=True, methods=['get'], url_path=RECIPE_LINK_PATH,
+        permission_classes=(permissions.AllowAny,)
+    )
+    def get_link(self, request, pk):
+        """Отвечает за выдачу ссылки на рецепт."""
+        return HttpResponse(request.build_absolute_uri(f'/api/recipes/{pk}/'))
+
 
 class UserViewSet(viewsets.ModelViewSet):
     """Представление для работы с учётными записями пользователей."""
 
     queryset = User.objects.all()
     http_method_names = ['get', 'post', 'put', 'delete']
+    filter_backends = (DjangoFilterBackend,)
+    pagination_class = LimitOffsetPagination
     permission_classes = (permissions.AllowAny,)
 
     def get_serializer_class(self):
@@ -166,9 +203,9 @@ class UserViewSet(viewsets.ModelViewSet):
             Follow.objects.create(
                 user=follower, following=user
             )
-            serializer = UserWithRecipeSerializer(
+            serializer = UserFollowSerializer(
                 user,
-                context={'request': request}
+                context={'request': request},
             )
             return Response(
                 data=serializer.data,
@@ -185,6 +222,28 @@ class UserViewSet(viewsets.ModelViewSet):
             user=follower, following=user
         ).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(
+        detail=False, methods=['get'], url_path=SUBSCRIPTIONS_PATH,
+        permission_classes=(permissions.IsAuthenticated,)
+    )
+    def subscriptions(self, request):
+        """
+        Возвращает пользователей, на которых подписан текущий пользователь.
+        """
+        user = request.user
+        followings = self.paginate_queryset(Follow.objects.filter(user=user))
+        serializer = FollowSerializer(
+            followings,
+            context={'request': request},
+            many=True
+        )
+        if followings:
+            return self.get_paginated_response(data=serializer.data)
+        return Response(
+            'Вы не подписаны ни на одного пользователя.',
+            status=status.HTTP_200_OK
+        )
 
     @action(
         detail=False, methods=['get'], url_path=USER_PROFILE,
@@ -244,3 +303,24 @@ class UserViewSet(viewsets.ModelViewSet):
         )
         user.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# class SubscribeViewSet(viewsets.ModelViewSet):
+#     """Представление для работы с учётными записями пользователей."""
+
+#     serializer_class = FollowSerializer
+#     http_method_names = ['post', 'delete']
+#     pagination_class = LimitOffsetPagination
+#     permission_classes = (permissions.IsAuthenticated,)
+
+#     def get_queryset(self):
+#         return Follow.objects.filter(user=self.request.user)
+
+#     def perform_create(self, serializer):
+#         user_id = int(self.kwargs['id'])
+#         user = User.objects.filter(id=user_id).first()
+#         follower = self.request.user
+#         Follow.objects.filter(
+#                 user=follower, following=user
+#             )
+#         serializer.save(following=user)
