@@ -3,12 +3,17 @@ from rest_framework import renderers
 
 
 class TextIngredientDataRenderer(renderers.BaseRenderer):
+    """
+    Рендер для работы со списком покупок.
+
+    Возвращает список покупок в виде txt файла.
+    """
 
     media_type = "text/plain"
     format = "txt"
 
     def render(self, data, accepted_media_type=None, renderer_context=None):
-
+        """Метод для настройки рендеринга."""
         text_buffer = io.StringIO()
         left = 0
         right = len(data) - 1

@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.db import models
 
-from recipes.models import Ingredient, Recipe, RecipeIngredients, Tag
+from recipes.models import (
+    Ingredient, Recipe,
+    RecipeIngredients, ShortLink, Tag
+)
 
 
 @admin.register(Ingredient)
@@ -40,3 +43,11 @@ class TagAdmin(admin.ModelAdmin):
     # list_display_links = ('text',)
     list_filter = ('name',)
     search_fields = ('slug',)
+
+
+@admin.register(ShortLink)
+class ShortLinkAdmin(admin.ModelAdmin):
+    """Админ-зона ссылок."""
+
+    list_display = ('full_link', 'short_link')
+    search_fields = ('full_link',)

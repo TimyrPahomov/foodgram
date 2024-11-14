@@ -1,15 +1,29 @@
-from django_filters import rest_framework as filter, MultipleChoiceFilter
+from django_filters import MultipleChoiceFilter, rest_framework as filter
 from django_filters.fields import MultipleChoiceField
 from rest_framework import filters
+
+from utils.functions import filter_value
 from recipes.models import Recipe
 
 
 class MultipleCharField(MultipleChoiceField):
+    """
+    Фильтр для работы с несколькими тегами.
+
+    Изменяет метод validate.
+    """
+
     def validate(self, _):
         pass
 
 
 class MultipleCharFilter(MultipleChoiceFilter):
+    """
+    Фильтр для работы с несколькими тегами.
+
+    Указывает значение для поля field_class.
+    """
+
     field_class = MultipleCharField
 
 
@@ -25,21 +39,15 @@ class RecipeFilter(filter.FilterSet):
         fields = ('is_favorited', 'is_in_shopping_cart', 'tags', 'author')
 
     def favorite_value(self, queryset, name, value):
-        if not value:
-            return queryset
-        queryset = queryset.filter(
-            **{'favorite__user_id': self.request.user.pk}
-        )
-        return queryset
+        """Метод для получения избранных рецептов."""
+        return filter_value(self, queryset, 'favorite__user_id', value)
 
     def shopping_cart_value(self, queryset, name, value):
-        if not value:
-            return queryset
-        queryset = queryset.filter(
-            **{'shoppingcart__user_id': self.request.user.pk}
-        )
-        return queryset
+        """Метод для получения рецептов из списка покупок."""
+        return filter_value(self, queryset, 'shoppingcart__user_id', value)
 
 
 class NameSearchFilter(filters.SearchFilter):
+    """Фильтр для поиска ингредиента по названию."""
+
     search_param = "name"

@@ -5,7 +5,7 @@ from django.db import models
 from utils.constants import (
     INGREDIENT_MEASUREMENT_UNIT_MAX_LENGTH, INGREDIENT_NAME_MAX_LENGTH,
     INVALID_COOKING_TIME_MESSAGE, MAX_REPR_LENGTH, MIN_COOKING_TIME,
-    RECIPE_NAME_MAX_LENGTH, TAG_MAX_LENGTH
+    RECIPE_NAME_MAX_LENGTH, SHORT_LINK_MAX_LENGTH, TAG_MAX_LENGTH
 )
 
 User = get_user_model()
@@ -184,14 +184,6 @@ class Favorite(UserRecipeModel):
         verbose_name_plural = 'Избранные рецепты'
 
 
-class ShoppingCart(UserRecipeModel):
-    """Модель Списка покупок."""
-
-    class Meta(UserRecipeModel.Meta):
-        verbose_name = 'список покупок'
-        verbose_name_plural = 'Списки покупок'
-
-
 class Follow(models.Model):
     """Модель Подписки."""
 
@@ -214,3 +206,29 @@ class Follow(models.Model):
                 name='follow_user_not_exact_following'
             ),
         ]
+
+
+class ShoppingCart(UserRecipeModel):
+    """Модель Списка покупок."""
+
+    class Meta(UserRecipeModel.Meta):
+        verbose_name = 'список покупок'
+        verbose_name_plural = 'Списки покупок'
+
+
+class ShortLink(models.Model):
+    """Модель для генерации короткой ссылки."""
+
+    full_link = models.URLField(unique=True)
+    short_link = models.CharField(
+        max_length=SHORT_LINK_MAX_LENGTH,
+        unique=True,
+        db_index=True
+    )
+
+    class Meta:
+        verbose_name = 'короткая ссылка'
+        verbose_name_plural = 'Короткие ссылки'
+
+    def __str__(self):
+        return f'{self.full_link} - {self.short_link}'
