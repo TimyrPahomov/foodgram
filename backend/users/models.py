@@ -2,7 +2,8 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
 from django.db import models
 
-from utils.constants import (EMAIL_MAX_LENGTH, MAX_REPR_LENGTH,
+from utils.constants import (EMAIL_MAX_LENGTH, FIRST_NAME_MAX_LENGTH,
+                             LAST_NAME_MAX_LENGTH, MAX_REPR_LENGTH,
                              USERNAME_MAX_LENGTH, USERNAME_REGEX)
 
 
@@ -15,7 +16,7 @@ class FoodgramUser(AbstractUser):
         max_length=EMAIL_MAX_LENGTH,
     )
     username = models.CharField(
-        'Юзернейм пользователя',
+        'Имя пользователя',
         max_length=USERNAME_MAX_LENGTH,
         unique=True,
         validators=(
@@ -27,12 +28,12 @@ class FoodgramUser(AbstractUser):
         )
     )
     first_name = models.CharField(
-        'Имя пользователя',
-        max_length=USERNAME_MAX_LENGTH
+        'Имя',
+        max_length=FIRST_NAME_MAX_LENGTH
     )
     last_name = models.CharField(
-        'Фамилия пользователя',
-        max_length=USERNAME_MAX_LENGTH
+        'Фамилия',
+        max_length=LAST_NAME_MAX_LENGTH
     )
     password = models.TextField('Пароль')
     avatar = models.ImageField(

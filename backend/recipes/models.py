@@ -2,32 +2,51 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator
 from django.db import models
 
+from recipes.common_models import UserRecipeModel
 from utils.constants import (
     INGREDIENT_MEASUREMENT_UNIT_MAX_LENGTH, INGREDIENT_NAME_MAX_LENGTH,
     INVALID_COOKING_TIME_MESSAGE, MAX_REPR_LENGTH, MIN_COOKING_TIME,
-    RECIPE_NAME_MAX_LENGTH, SHORT_LINK_MAX_LENGTH, TAG_MAX_LENGTH
+    RECIPE_NAME_MAX_LENGTH, TAG_MAX_LENGTH
 )
 
 User = get_user_model()
 
 
-class Tag(models.Model):
-    """Модель Тега."""
+class Favorite(UserRecipeModel):
+    """Модель Избранного."""
 
-    name = models.CharField(
-        'Название',
-        max_length=TAG_MAX_LENGTH,
-        unique=True
-    )
-    slug = models.SlugField('Слаг', max_length=TAG_MAX_LENGTH, unique=True)
+    class Meta(UserRecipeModel.Meta):
+        verbose_name = 'избранный рецепт'
+        verbose_name_plural = 'Избранные рецепты'
+
+
+class Follow(models.Model):
+    """Модель Подписки."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Подписчик')
+
+    following = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Пользователь', related_name='follows')
 
     class Meta:
-        ordering = ('name',)
-        verbose_name = 'тег'
-        verbose_name_plural = 'Теги'
+        verbose_name = 'подписка'
+        verbose_name_plural = 'Подписки'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'following'],
+                name='unique_user_following'
+            ),
+            models.CheckConstraint(
+                check=~models.Q(user__exact=models.F('following')),
+                name='follow_user_not_exact_following'
+            ),
+        ]
 
     def __str__(self):
-        return self.name[:MAX_REPR_LENGTH]
+        return f'{self.user} - {self.following}'
 
 
 class Ingredient(models.Model):
@@ -49,6 +68,53 @@ class Ingredient(models.Model):
 
     def __str__(self):
         return self.name[:MAX_REPR_LENGTH]
+
+
+class Tag(models.Model):
+    """Модель Тега."""
+
+    name = models.CharField(
+        'Название',
+        max_length=TAG_MAX_LENGTH,
+        unique=True
+    )
+    slug = models.SlugField('Слаг', max_length=TAG_MAX_LENGTH, unique=True)
+
+    class Meta:
+        ordering = ('name',)
+        verbose_name = 'тег'
+        verbose_name_plural = 'Теги'
+
+    def __str__(self):
+        return self.name[:MAX_REPR_LENGTH]
+
+
+class RecipeIngredients(models.Model):
+    """Промежуточная модель для связи Рецепта и Ингредиента."""
+
+    recipe = models.ForeignKey(
+        'Recipe',
+        on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+    )
+    ingredients = models.ForeignKey(
+        Ingredient,
+        on_delete=models.CASCADE,
+        verbose_name='Ингредиент',
+    )
+    amount = models.PositiveSmallIntegerField(
+        'Количество',
+        blank=False,
+        null=False
+    )
+
+    class Meta:
+        default_related_name = 'recipe_ingredients'
+        verbose_name = 'ингредиент рецепта'
+        verbose_name_plural = 'Ингредиенты рецепта'
+
+    def __str__(self):
+        return f'{self.recipe} - {self.ingredients}'
 
 
 class RecipeTags(models.Model):
@@ -77,40 +143,6 @@ class RecipeTags(models.Model):
 
     def __str__(self):
         return f'{self.recipe} - {self.tags}'
-
-
-class RecipeIngredients(models.Model):
-    """Промежуточная модель для связи Рецепта и Ингредиента."""
-
-    recipe = models.ForeignKey(
-        'Recipe',
-        on_delete=models.CASCADE,
-        verbose_name='Рецепт',
-    )
-    ingredients = models.ForeignKey(
-        Ingredient,
-        on_delete=models.CASCADE,
-        verbose_name='Ингредиент',
-    )
-    amount = models.PositiveSmallIntegerField(
-        'Количество',
-        blank=False,
-        null=False
-    )
-
-    class Meta:
-        constraints = (
-            models.UniqueConstraint(
-                fields=('recipe', 'ingredients'),
-                name='unique_ingredient_for_recipe',
-            ),
-        )
-        default_related_name = 'recipe_ingredients'
-        verbose_name = 'ингредиент рецепта'
-        verbose_name_plural = 'Ингредиенты рецепта'
-
-    def __str__(self):
-        return f'{self.recipe} - {self.ingredients}'
 
 
 class Recipe(models.Model):
@@ -145,67 +177,20 @@ class Recipe(models.Model):
         through=RecipeIngredients,
         verbose_name='Ингредиенты',
     )
+    short_link = models.SlugField(unique=True, blank=True)
+    pub_date = models.DateTimeField(
+        'Дата и время публикации',
+        auto_now_add=True
+    )
 
     class Meta:
         default_related_name = 'recipes'
-        ordering = ('name',)
+        ordering = ('-pub_date',)
         verbose_name = 'рецепт'
         verbose_name_plural = 'Рецепты'
 
     def __str__(self):
         return self.name[:MAX_REPR_LENGTH]
-
-
-class UserRecipeModel(models.Model):
-    """Абстрактная модель. Добавляет поля user и recipe."""
-
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE,
-        verbose_name='Пользователь',
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        verbose_name='Рецепт',
-    )
-
-    class Meta:
-        abstract = True
-
-    def __str__(self):
-        return f'{self.user} - {self.recipe}'
-
-
-class Favorite(UserRecipeModel):
-    """Модель Избранного."""
-
-    class Meta(UserRecipeModel.Meta):
-        verbose_name = 'избранный рецепт'
-        verbose_name_plural = 'Избранные рецепты'
-
-
-class Follow(models.Model):
-    """Модель Подписки."""
-
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE)
-
-    following = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='follows')
-
-    class Meta:
-        verbose_name = 'подписка'
-        verbose_name_plural = 'Подписки'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'following'],
-                name='unique_user_following'
-            ),
-            models.CheckConstraint(
-                check=~models.Q(user__exact=models.F('following')),
-                name='follow_user_not_exact_following'
-            ),
-        ]
 
 
 class ShoppingCart(UserRecipeModel):
@@ -214,21 +199,3 @@ class ShoppingCart(UserRecipeModel):
     class Meta(UserRecipeModel.Meta):
         verbose_name = 'список покупок'
         verbose_name_plural = 'Списки покупок'
-
-
-class ShortLink(models.Model):
-    """Модель для генерации короткой ссылки."""
-
-    full_link = models.URLField(unique=True)
-    short_link = models.CharField(
-        max_length=SHORT_LINK_MAX_LENGTH,
-        unique=True,
-        db_index=True
-    )
-
-    class Meta:
-        verbose_name = 'короткая ссылка'
-        verbose_name_plural = 'Короткие ссылки'
-
-    def __str__(self):
-        return f'{self.full_link} - {self.short_link}'

@@ -1,9 +1,9 @@
-from django.http import HttpResponse
+# from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
-from recipes.models import Favorite, Follow, Recipe, ShoppingCart, ShortLink
+from recipes.models import Favorite, Follow, Recipe, ShoppingCart
 from utils.constants import SUBSCRIBE_TO_YOURSELF_MESSAGE, ZERO_VALUE
 
 
@@ -12,7 +12,7 @@ def filter_value(self, queryset, name, value):
     if not value:
         return queryset
     queryset = queryset.filter(
-        **{'favorite__user_id': self.request.user.pk}
+        **{name: self.request.user.pk}
     )
     return queryset
 
@@ -21,7 +21,7 @@ def recipes_limit_validate(self, obj, serializer):
     """
     Проверяет наличие и корректность параметра 'recipes_limit'.
 
-    Если 'recipes_limit' передан в запросе, ограничивает количество рецептов 
+    Если 'recipes_limit' передан в запросе, ограничивает количество рецептов
     в ответе до значения параметра 'recipes_limit'.
     """
     request = self.context.get('request')
@@ -129,8 +129,14 @@ def add_or_remove_object(
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-def redirection(request, short_url):
-    """Перенаправляем пользователя на рецепт по короткой ссылке"""
-    obj = get_object_or_404(ShortLink, short_link=short_url)
-    full_link = obj.full_link
-    return redirect(full_link)
+def redirection(request, short_link):
+    """Перенаправляет пользователя на рецепт по короткой ссылке"""
+    # recipe = get_object_or_404(Recipe, short_link=short_link)
+    # return HttpResponseRedirect(
+    #         request.build_absolute_uri(
+    #             f'/api/recipes/{recipe.id}'
+    #         )
+    #     )
+    domain = request.get_host()
+    recipe = get_object_or_404(Recipe, short_link=short_link)
+    return redirect(f'http://{domain}/recipes/{recipe.id}')

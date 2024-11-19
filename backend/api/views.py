@@ -1,7 +1,4 @@
-import random
-
 from django_filters.rest_framework import DjangoFilterBackend
-from django.http import HttpResponse
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -13,22 +10,22 @@ from api.serializers import (FollowPostDeleteSerializer, FollowReadSerializer,
                              IngredientReadSerializer, IngredientSerializer,
                              RecipeIngredients, RecipeMiniSerializer,
                              RecipeReadSerializer, RecipeSerializer,
-                             ShortLinkSerializer, TagSerializer,
-                             UserAvatarSerializer, UserCreateSerializer,
+                             TagSerializer, UserAvatarSerializer,
+                             UserCreateSerializer,
                              UserPasswordChangeSerializer,
                              UserSerializer)
 from recipes.models import (Favorite, Follow, Ingredient,
-                            Recipe, ShoppingCart, ShortLink, Tag, User)
+                            Recipe, ShoppingCart, Tag, User)
 from utils.constants import (AVATAR_PATH, DOWNLOAD_SHOPPING_CART_PATH,
                              FAVORITE_PATH, PASSWORD_CHANGE_PATH,
                              RECIPE_ALREADY_IN_FAVORITE_MESSAGE,
                              RECIPE_ALREADY_IN_SHOPPING_CART_MESSAGE,
-                             RECIPE_LINK_PATH, RECIPE_NOT_EXISTS_MESSAGE,
+                             RECIPE_LINK_PATH,
                              RECIPE_NOT_IN_FAVORITE_MESSAGE,
                              RECIPE_NOT_IN_SHOPPING_CART_MESSAGE,
-                             SHOPPING_CART_PATH, SHORT_LINK_LENGTH,
+                             SHOPPING_CART_PATH,
                              SUBSCRIBE_PATH, SUBSCRIPTIONS_PATH,
-                             SYMBOLS_FOR_LINK, USER_ALREADY_SUBSCRIBE_MESSAGE,
+                             USER_ALREADY_SUBSCRIBE_MESSAGE,
                              USER_NOT_SUBSCRIBE_MESSAGE, USER_PROFILE)
 from utils.functions import add_or_remove_object
 
@@ -59,6 +56,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     permission_classes = (UpdateDeletePermission,)
     http_method_names = ['get', 'post', 'patch', 'delete']
+    ordering_fields = ('-pub_date',)
 
     def get_serializer_class(self):
         """Возвращает сериализатор в зависимости от метода запроса."""
@@ -125,36 +123,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def get_link(self, request, pk):
         """Отвечает за выдачу короткой ссылки на рецепт."""
-        if not Recipe.objects.filter(id=pk).exists():
-            return Response(
-                RECIPE_NOT_EXISTS_MESSAGE,
-                status.HTTP_400_BAD_REQUEST
-            )
-        full_url = request.build_absolute_uri(f'/api/recipes/{pk}/')
-        if ShortLink.objects.filter(full_link=full_url).exists():
-            link = ShortLink.objects.get(full_link=full_url)
-        else:
-            while True:
-                short_url = ''.join(
-                    random.choices(
-                        SYMBOLS_FOR_LINK,
-                        k=SHORT_LINK_LENGTH
-                    )
-                )
-                if not ShortLink.objects.filter(
-                    short_link=short_url
-                ).exists():
-                    break
-            link = ShortLink.objects.create(
-                full_link=full_url, short_link=short_url
-            )
-        path = request.stream.path.replace('/', '', 1)
-        absolute_url = request.build_absolute_uri(
-            f's/{link.short_link}'
-        ).replace(path, '')
+        recipe = self.get_object()
+        domain = request.get_host()
         return Response(
-            {'short-link': absolute_url},
-            status=status.HTTP_200_OK
+            {'short-link': f'http://{domain}/s/{recipe.short_link}'}
         )
 
 
@@ -194,19 +166,14 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         Возвращает пользователей, на которых подписан текущий пользователь.
         """
-        user = request.user
-        followings = self.paginate_queryset(Follow.objects.filter(user=user))
+        followings = self.paginate_queryset(
+            Follow.objects.filter(user=request.user))
         serializer = FollowReadSerializer(
             followings,
             context={'request': request},
             many=True
         )
-        if followings:
-            return self.get_paginated_response(data=serializer.data)
-        return Response(
-            'Вы не подписаны ни на одного пользователя.',
-            status=status.HTTP_200_OK
-        )
+        return self.get_paginated_response(data=serializer.data)
 
     @action(
         detail=False, methods=['get'], url_path=USER_PROFILE,

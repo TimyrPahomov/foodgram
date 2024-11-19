@@ -1,10 +1,13 @@
+import random
+
 from rest_framework import serializers
 
 from api.common_serializers import Base64ImageField
 from recipes.models import (Favorite, Follow, Ingredient, Recipe,
-                            RecipeIngredients, ShoppingCart,
-                            ShortLink, Tag, User)
-from utils.constants import USERNAME_REGEX, ZERO_VALUE
+                            RecipeIngredients, ShoppingCart, Tag, User)
+from utils.constants import (FIRST_NAME_MAX_LENGTH, LAST_NAME_MAX_LENGTH,
+                             SHORT_LINK_LENGTH, SYMBOLS_FOR_LINK,
+                             USERNAME_MAX_LENGTH, USERNAME_REGEX, ZERO_VALUE)
 from utils.functions import value_in_model, recipes_limit_validate
 
 
@@ -117,13 +120,27 @@ class UserCreateSerializer(serializers.ModelSerializer):
         """Проверяет наличие пользователя с указанными данными."""
         username = data.get('username')
         email = data.get('email')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
         if User.objects.filter(username=username).exists():
             raise serializers.ValidationError(
                 'Пользователь с таким username уже существует.'
             )
         if User.objects.filter(email=email).exists():
             raise serializers.ValidationError(
-                {'Пользователь с таким email уже существует.'}
+                'Пользователь с таким email уже существует.'
+            )
+        if len(first_name) > FIRST_NAME_MAX_LENGTH:
+            raise serializers.ValidationError(
+                'Слишком длинное имя.'
+            )
+        if len(last_name) > LAST_NAME_MAX_LENGTH:
+            raise serializers.ValidationError(
+                'Слишком длинная фамилия.'
+            )
+        if len(username) > USERNAME_MAX_LENGTH:
+            raise serializers.ValidationError(
+                'Слишком длинное имя пользователя.'
             )
         return data
 
@@ -245,32 +262,42 @@ class RecipeSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'Должен быть хотя бы один ингредиент.'
             )
+        all_ingredients = []
+        for ingredient in ingredients:
+            all_ingredients.append(ingredient.get('id'))
+            if len(set(all_ingredients)) != len(all_ingredients):
+                raise serializers.ValidationError(
+                    'Ингредиент используется в рецепте больше одного раза.'
+                )
+            if ingredient.get('amount') <= ZERO_VALUE:
+                raise serializers.ValidationError(
+                    'Количество ингредиентов не должно быть меньше нуля.'
+                )
         return data
 
     def create(self, validated_data):
         """Создаёт новый рецепт."""
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('recipe_ingredients')
+        while True:
+            short_link = ''.join(
+                random.choices(
+                    SYMBOLS_FOR_LINK,
+                    k=SHORT_LINK_LENGTH
+                )
+            )
+            if not Recipe.objects.filter(
+                short_link=short_link
+            ).exists():
+                break
+        validated_data['short_link'] = short_link
         recipe = Recipe.objects.create(**validated_data)
         recipe.tags.set(tags)
         for ingredient in ingredients:
-            current_ingredient = RecipeIngredients.objects.filter(
-                recipe=recipe,
-                ingredients=ingredient.get('id'),
-            )
-            if current_ingredient:
-                raise serializers.ValidationError(
-                    'Ингредиент используется в рецепте больше одного раза.'
-                )
-            amount = ingredient.get('amount')
-            if amount == ZERO_VALUE:
-                raise serializers.ValidationError(
-                    'Количество ингредиентов не должно быть меньше нуля.'
-                )
             RecipeIngredients.objects.create(
                 recipe=recipe,
                 ingredients=ingredient.get('id'),
-                amount=amount
+                amount=ingredient.get('amount')
             )
         return recipe
 
@@ -288,22 +315,13 @@ class RecipeSerializer(serializers.ModelSerializer):
         ingredients = validated_data.pop('recipe_ingredients')
         all_ingredients = []
         for ingredient in ingredients:
-            ingredient_id = ingredient.get('id')
-            ingredient_amount = ingredient.get('amount')
-            if ingredient_amount == ZERO_VALUE:
-                raise serializers.ValidationError(
-                    'Количество не должно быть меньше нуля.'
-                )
+            ingredient_data = ingredient.get('id')
+            all_ingredients.append(ingredient_data)
             RecipeIngredients.objects.get_or_create(
                 recipe=instance,
-                ingredients=ingredient_id,
-                amount=ingredient_amount
+                ingredients=ingredient_data,
+                amount=ingredient.get('amount')
             )
-            all_ingredients.append(ingredient_id)
-            if len(set(all_ingredients)) != len(all_ingredients):
-                raise serializers.ValidationError(
-                    'Ингредиент используется в рецепте больше одного раза.'
-                )
             instance.ingredients.set(all_ingredients)
         instance.save()
         return instance
@@ -454,21 +472,3 @@ class FollowReadSerializer(serializers.ModelSerializer):
             obj.following,
             RecipeMiniSerializer
         )
-
-
-class ShortLinkSerializer(serializers.ModelSerializer):
-    """Сериализатор получения короткой ссылки."""
-
-    short_link = serializers.SerializerMethodField()
-
-    class Meta:
-        fields = (
-            'short_link',
-        )
-        model = ShortLink
-
-    def get_short_link(self, obj):
-        request = self.context.get('request')
-        path = request.stream.path.replace('/', '', 1)
-        absolute_url = request.build_absolute_uri(f's/{obj.short_link}')
-        return absolute_url.replace(path, '')
