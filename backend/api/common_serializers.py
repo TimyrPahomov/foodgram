@@ -8,6 +8,7 @@ class Base64ImageField(serializers.ImageField):
     """Поле для кодирования изображений."""
 
     def to_internal_value(self, data):
+        """Проверяет запрос на обновление изображения в сериализаторе."""
         if isinstance(data, str) and data.startswith('data:image'):
             format, imgstr = data.split(';base64,')
             ext = format.split('/')[-1]

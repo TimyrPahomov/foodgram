@@ -1,4 +1,3 @@
-# from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -131,12 +130,9 @@ def add_or_remove_object(
 
 def redirection(request, short_link):
     """Перенаправляет пользователя на рецепт по короткой ссылке"""
-    # recipe = get_object_or_404(Recipe, short_link=short_link)
-    # return HttpResponseRedirect(
-    #         request.build_absolute_uri(
-    #             f'/api/recipes/{recipe.id}'
-    #         )
-    #     )
-    domain = request.get_host()
     recipe = get_object_or_404(Recipe, short_link=short_link)
-    return redirect(f'http://{domain}/recipes/{recipe.id}')
+    return redirect(
+        request.build_absolute_uri(
+            f'/recipes/{recipe.id}'
+        )
+    )

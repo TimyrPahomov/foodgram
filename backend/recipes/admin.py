@@ -2,8 +2,14 @@ from django.contrib import admin
 
 from recipes.common_admin import UserRecipeAdmin
 from recipes.models import (
-    Ingredient, Favorite, Follow, Recipe,
-    RecipeIngredients, RecipeTags, ShoppingCart, Tag
+    Favorite,
+    Follow,
+    Ingredient,
+    Recipe,
+    RecipeIngredients,
+    RecipeTags,
+    ShoppingCart,
+    Tag
 )
 
 
@@ -12,7 +18,7 @@ class IngredientAdmin(admin.ModelAdmin):
     """Админ-зона Ингредиента."""
 
     list_display = ('name', 'measurement_unit')
-    search_fields = ('recipe__name', 'name')
+    search_fields = ('name',)
     list_filter = ('name', 'measurement_unit')
 
 
@@ -37,7 +43,7 @@ class RecipeAdmin(admin.ModelAdmin):
         'name', 'author', 'image', 'text', 'cooking_time', 'in_favorite_count'
     )
     list_filter = ('author', 'ingredients', 'tags')
-    search_fields = ('name', 'author')
+    search_fields = ('name', 'author__first_name', 'author__last_name')
     inlines = (RecipeIngredientsInline, RecipeTagsInline)
 
     @admin.display(description='Количество добавлений в избранное.')

@@ -2,8 +2,8 @@ from django_filters import MultipleChoiceFilter, rest_framework as filter
 from django_filters.fields import MultipleChoiceField
 from rest_framework import filters
 
-from utils.functions import filter_value
 from recipes.models import Recipe
+from utils.functions import filter_value
 
 
 class MultipleCharField(MultipleChoiceField):

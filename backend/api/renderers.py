@@ -1,5 +1,8 @@
 import io
+
 from rest_framework import renderers
+
+from utils.constants import LEFT_POINT, POINT
 
 
 class TextIngredientDataRenderer(renderers.BaseRenderer):
@@ -15,16 +18,24 @@ class TextIngredientDataRenderer(renderers.BaseRenderer):
     def render(self, data, accepted_media_type=None, renderer_context=None):
         """Метод для настройки рендеринга."""
         text_buffer = io.StringIO()
-        left = 0
-        right = len(data) - 1
+        left = LEFT_POINT
+        right = len(data) - POINT
+        point = POINT
         while left <= right:
-            if left != right and data[left]['id'] == data[left+1]['id']:
-                data[left+1]['amount'] += data[left]['amount']
-                left += 1
+            if point <= right and left + point <= right:
+                if left != right and (
+                    data[left]['id'] == data[left + point]['id']
+                ):
+                    data[left + point]['amount'] += data[left]['amount']
+                    left += 1
+                    point = 1
+                    continue
+                point += 1
                 continue
             text_buffer.write(
                 data[left]['name'] + ' ' + '('
                 + data[left]['measurement_unit'] + ')' + ' - '
                 + str(data[left]['amount']) + '\n')
             left += 1
+            point = 1
         return text_buffer.getvalue()
