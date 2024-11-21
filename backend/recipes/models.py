@@ -152,7 +152,10 @@ class RecipeTags(models.Model):
 class Recipe(models.Model):
     """Модель Рецепта."""
 
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Автор'
+    )
     name = models.CharField(
         'Название',
         max_length=RECIPE_NAME_MAX_LENGTH,
