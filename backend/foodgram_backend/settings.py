@@ -7,10 +7,9 @@ AUTH_USER_MODEL = 'users.FoodgramUser'
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+SECRET_KEY = os.getenv('SECRET_KEY', 'default-secret-key')
 
-SECRET_KEY = 'django-insecure-phgw3$)5cel@@=l%@=8_n_)^4xljgg1l1v8+g-n-&qj_t91e$('
-
-DEBUG = True
+DEBUG = os.getenv('DEBUG', False) == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
