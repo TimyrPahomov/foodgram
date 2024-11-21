@@ -109,18 +109,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
         queryset = RecipeIngredients.objects.filter(
             recipe__shoppingcart__user=self.request.user
         )
-        file_name = "Список ингредиентов"
         serializer = IngredientSerializer(
             queryset,
             context={'request': request},
             many=True
         )
-        return Response(
-            serializer.data,
-            headers={
-                "Content-Disposition": f'attachment; filename="{file_name}"'
-            }
-        )
+        return Response(serializer.data)
 
     @action(
         detail=True, methods=['post', 'delete'], url_path=FAVORITE_PATH,
