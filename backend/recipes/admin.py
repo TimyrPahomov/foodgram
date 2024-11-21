@@ -19,7 +19,6 @@ class IngredientAdmin(admin.ModelAdmin):
 
     list_display = ('name', 'measurement_unit')
     search_fields = ('name',)
-    list_filter = ('name', 'measurement_unit')
 
 
 class RecipeIngredientsInline(admin.TabularInline):
@@ -40,9 +39,9 @@ class RecipeAdmin(admin.ModelAdmin):
 
     readonly_fields = ('in_favorite_count',)
     list_display = (
-        'name', 'author', 'image', 'text', 'cooking_time', 'in_favorite_count'
+        'name', 'author', 'cooking_time', 'in_favorite_count'
     )
-    list_filter = ('author', 'ingredients', 'tags')
+    list_filter = ('author', 'tags')
     search_fields = ('name', 'author__first_name', 'author__last_name')
     inlines = (RecipeIngredientsInline, RecipeTagsInline)
 

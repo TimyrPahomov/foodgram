@@ -9,6 +9,6 @@ class FoodgramUserAdmin(UserAdmin):
     """Админ-зона Пользователей."""
 
     model = FoodgramUser
-    list_display = ('first_name', 'last_name', 'username', 'email', 'avatar')
+    list_display = ('first_name', 'last_name', 'username', 'email')
     search_fields = ('first_name', 'email')
     list_filter = ('first_name',)
