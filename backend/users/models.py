@@ -18,26 +18,31 @@ class FoodgramUser(AbstractUser):
         'Адрес электронной почты',
         unique=True,
         max_length=EMAIL_MAX_LENGTH,
+        error_messages={
+            'unique': 'Пользователь с такой почтой уже существует.'
+        }
     )
     username = models.CharField(
         'Имя пользователя',
         max_length=USERNAME_MAX_LENGTH,
         unique=True,
+        error_messages={
+            'unique': 'Такое имя пользователя уже существует.'
+        },
         validators=(
             RegexValidator(
                 regex=USERNAME_REGEX,
                 message='Недопустимый символ в имени пользователя.'
             ),
-
         )
     )
     first_name = models.CharField(
         'Имя',
-        max_length=FIRST_NAME_MAX_LENGTH
+        max_length=FIRST_NAME_MAX_LENGTH,
     )
     last_name = models.CharField(
         'Фамилия',
-        max_length=LAST_NAME_MAX_LENGTH
+        max_length=LAST_NAME_MAX_LENGTH,
     )
     avatar = models.ImageField(
         'Аватар пользователя',
