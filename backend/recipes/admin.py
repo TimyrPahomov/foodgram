@@ -1,6 +1,5 @@
 from django.contrib import admin
 
-from recipes.common_admin import UserRecipeAdmin
 from recipes.models import (
     Favorite,
     Follow,
@@ -13,9 +12,21 @@ from recipes.models import (
 )
 
 
+class UserRecipeAdmin(admin.ModelAdmin):
+    """
+    Общий класс для представления в Админ-зоне.
+
+    Добавляет поля list_display, search_fields и list_filter.
+    """
+
+    list_display = ('user', 'recipe')
+    search_fields = ('user__username', 'recipe__name')
+    list_filter = ('user',)
+
+
 @admin.register(Ingredient)
 class IngredientAdmin(admin.ModelAdmin):
-    """Админ-зона Ингредиента."""
+    """Класс для представления ингредиентов в Админ-зоне."""
 
     list_display = ('name', 'measurement_unit')
     search_fields = ('name',)
@@ -35,7 +46,7 @@ class RecipeTagsInline(admin.TabularInline):
 
 @admin.register(Recipe)
 class RecipeAdmin(admin.ModelAdmin):
-    """Админ-зона Рецептов."""
+    """Класс для представления рецептов в Админ-зоне."""
 
     readonly_fields = ('in_favorite_count',)
     list_display = (
@@ -53,7 +64,7 @@ class RecipeAdmin(admin.ModelAdmin):
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
-    """Админ-зона Тегов."""
+    """Класс для представления тегов в Админ-зоне."""
 
     list_display = ('name', 'slug')
     list_filter = ('name',)
@@ -62,14 +73,12 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(Favorite)
 class FavoriteAdmin(UserRecipeAdmin):
-    """Админ-зона Избранного."""
-
-    pass
+    """Класс для представления избранного в Админ-зоне."""
 
 
 @admin.register(Follow)
 class FollowAdmin(admin.ModelAdmin):
-    """Админ-зона Подписок."""
+    """Класс для представления подписок в Админ-зоне."""
 
     list_display = ('user', 'following')
     search_fields = ('user__username', 'following__username')
@@ -78,6 +87,4 @@ class FollowAdmin(admin.ModelAdmin):
 
 @admin.register(ShoppingCart)
 class ShoppingCartAdmin(UserRecipeAdmin):
-    """Админ-зона Списка покупок."""
-
-    pass
+    """Класс для представления списка покупок в Админ-зоне."""

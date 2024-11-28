@@ -1,21 +1,26 @@
 """Константы проекта."""
 
 AVATAR_PATH = 'me/avatar'
+DEFAULT_AMOUNT_VALUE = 1
+DEFAULT_RECIPES_LIMIT = 20
 DOWNLOAD_SHOPPING_CART_PATH = 'download_shopping_cart'
 EMAIL_MAX_LENGTH = 254
 FIRST_NAME_MAX_LENGTH = 150
 FAVORITE_PATH = 'favorite'
 INGREDIENT_MEASUREMENT_UNIT_MAX_LENGTH = 64
 INGREDIENT_NAME_MAX_LENGTH = 128
+INVALID_SUBSCRIBE_MESSAGE = 'Пользователя с таким id не существует'
 LAST_NAME_MAX_LENGTH = 150
 LEFT_POINT = 0
-MAX_REPR_LENGTH = 25
+MAX_AMOUNT = 20000
+MAX_COOKING_TIME = 180
+MIN_AMOUNT = 1
 MIN_COOKING_TIME = 1
+INVALID_AMOUNT_MESSAGE = f'Введите значение от {MIN_AMOUNT} до {MAX_AMOUNT}.'
 INVALID_COOKING_TIME_MESSAGE = (
-    f'Значение должно быть больше {MIN_COOKING_TIME}.'
+    f'Введите значение от {MIN_COOKING_TIME} до {MAX_COOKING_TIME}.'
 )
 PAGE_SIZE = 6
-PASSWORD_CHANGE_PATH = 'set_password'
 POINT = 1
 RECIPE_ALREADY_IN_FAVORITE_MESSAGE = 'Рецепт уже добавлен в избранное.'
 RECIPE_ALREADY_IN_SHOPPING_CART_MESSAGE = 'Рецепт уже в списке покупок.'
@@ -36,5 +41,3 @@ USERNAME_MAX_LENGTH = 150
 USERNAME_REGEX = r'^[\w.@+-]+\Z'
 USER_ALREADY_SUBSCRIBE_MESSAGE = 'Вы уже подписаны на этого пользователя.'
 USER_NOT_SUBSCRIBE_MESSAGE = 'Вы не подписаны на данного пользователя.'
-USER_PROFILE = 'me'
-ZERO_VALUE = 0

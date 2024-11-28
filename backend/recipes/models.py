@@ -1,13 +1,15 @@
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
-from recipes.common_models import UserRecipeModel
 from utils.constants import (
     INGREDIENT_MEASUREMENT_UNIT_MAX_LENGTH,
     INGREDIENT_NAME_MAX_LENGTH,
+    INVALID_AMOUNT_MESSAGE,
     INVALID_COOKING_TIME_MESSAGE,
-    MAX_REPR_LENGTH,
+    MAX_AMOUNT,
+    MAX_COOKING_TIME,
+    MIN_AMOUNT,
     MIN_COOKING_TIME,
     RECIPE_NAME_MAX_LENGTH,
     TAG_MAX_LENGTH
@@ -16,20 +18,51 @@ from utils.constants import (
 User = get_user_model()
 
 
+class UserRecipeModel(models.Model):
+    """Абстрактная модель. Добавляет поля user и recipe."""
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        verbose_name='Пользователь',
+    )
+    recipe = models.ForeignKey(
+        'Recipe',
+        on_delete=models.CASCADE,
+        verbose_name='Рецепт',
+    )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f'{self.user} - {self.recipe}'
+
+
 class Favorite(UserRecipeModel):
-    """Модель Избранного."""
+    """
+    Класс для представления избранных рецептов.
+
+    Позволяет пользователям добавлять рецепты в избранное
+    и удалять их из избранного.
+    """
 
     class Meta(UserRecipeModel.Meta):
+        default_related_name = 'favorites'
         verbose_name = 'избранный рецепт'
         verbose_name_plural = 'Избранные рецепты'
 
 
 class Follow(models.Model):
-    """Модель Подписки."""
+    """
+    Класс для представления подписок.
+
+    Позволяет пользователям подписываться друг на друга
+    или отписываться друг от друга.
+    """
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE,
-        verbose_name='Подписчик')
+        verbose_name='Подписчик', related_name='follower')
 
     following = models.ForeignKey(
         User, on_delete=models.CASCADE,
@@ -54,7 +87,7 @@ class Follow(models.Model):
 
 
 class Ingredient(models.Model):
-    """Модель Ингредиента."""
+    """Класс для представления ингредиента."""
 
     name = models.CharField(
         'Название',
@@ -71,11 +104,11 @@ class Ingredient(models.Model):
         verbose_name_plural = 'Ингредиенты'
 
     def __str__(self):
-        return self.name[:MAX_REPR_LENGTH]
+        return self.name
 
 
 class Tag(models.Model):
-    """Модель Тега."""
+    """Класс для представления тега."""
 
     name = models.CharField(
         'Название',
@@ -90,7 +123,7 @@ class Tag(models.Model):
         verbose_name_plural = 'Теги'
 
     def __str__(self):
-        return self.name[:MAX_REPR_LENGTH]
+        return self.name
 
 
 class RecipeIngredients(models.Model):
@@ -108,8 +141,10 @@ class RecipeIngredients(models.Model):
     )
     amount = models.PositiveSmallIntegerField(
         'Количество',
-        blank=False,
-        null=False
+        validators=(
+            MinValueValidator(MIN_AMOUNT, message=INVALID_AMOUNT_MESSAGE),
+            MaxValueValidator(MAX_AMOUNT, message=INVALID_AMOUNT_MESSAGE)
+        )
     )
 
     class Meta:
@@ -136,6 +171,7 @@ class RecipeTags(models.Model):
     )
 
     class Meta:
+        default_related_name = 'recipe_tags'
         constraints = (
             models.UniqueConstraint(
                 fields=('recipe', 'tags'),
@@ -150,7 +186,7 @@ class RecipeTags(models.Model):
 
 
 class Recipe(models.Model):
-    """Модель Рецепта."""
+    """Класс для представления рецепта."""
 
     author = models.ForeignKey(
         User, on_delete=models.CASCADE,
@@ -170,8 +206,12 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         'Время приготовления',
         validators=(
-            MinValueValidator(MIN_COOKING_TIME,
-                              message=INVALID_COOKING_TIME_MESSAGE),
+            MinValueValidator(
+                MIN_COOKING_TIME, message=INVALID_COOKING_TIME_MESSAGE
+            ),
+            MaxValueValidator(
+                MAX_COOKING_TIME, message=INVALID_COOKING_TIME_MESSAGE
+            )
         )
     )
     tags = models.ManyToManyField(
@@ -197,12 +237,18 @@ class Recipe(models.Model):
         verbose_name_plural = 'Рецепты'
 
     def __str__(self):
-        return self.name[:MAX_REPR_LENGTH]
+        return self.name
 
 
 class ShoppingCart(UserRecipeModel):
-    """Модель Списка покупок."""
+    """
+    Класс для представления списка покупок.
+
+    Позволяет пользователям добавлять рецепты в список покупок
+    и удалять их из списка покупок.
+    """
 
     class Meta(UserRecipeModel.Meta):
+        default_related_name = 'shopping_carts'
         verbose_name = 'список покупок'
         verbose_name_plural = 'Списки покупок'

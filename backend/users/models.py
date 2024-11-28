@@ -6,14 +6,13 @@ from utils.constants import (
     EMAIL_MAX_LENGTH,
     FIRST_NAME_MAX_LENGTH,
     LAST_NAME_MAX_LENGTH,
-    MAX_REPR_LENGTH,
     USERNAME_MAX_LENGTH,
     USERNAME_REGEX
 )
 
 
 class FoodgramUser(AbstractUser):
-    """Модель Пользователя."""
+    """Класс для представления пользователя."""
 
     email = models.EmailField(
         'Адрес электронной почты',
@@ -40,7 +39,6 @@ class FoodgramUser(AbstractUser):
         'Фамилия',
         max_length=LAST_NAME_MAX_LENGTH
     )
-    password = models.TextField('Пароль')
     avatar = models.ImageField(
         'Аватар пользователя',
         upload_to='users/avatars/',
@@ -55,7 +53,4 @@ class FoodgramUser(AbstractUser):
         ordering = ('first_name',)
 
     def __str__(self):
-        return (
-            f"{self.first_name[:MAX_REPR_LENGTH]} "
-            f"{self.last_name[:MAX_REPR_LENGTH]}."
-        )
+        return f'{self.first_name} {self.last_name}.'

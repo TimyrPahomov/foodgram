@@ -1,8 +1,8 @@
-import random
+import base64
 
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 
-from api.common_serializers import Base64ImageField
 from recipes.models import (
     Favorite,
     Follow,
@@ -13,16 +13,25 @@ from recipes.models import (
     Tag,
     User
 )
-from utils.constants import (
-    FIRST_NAME_MAX_LENGTH,
-    LAST_NAME_MAX_LENGTH,
-    SHORT_LINK_LENGTH,
-    SYMBOLS_FOR_LINK,
-    USERNAME_MAX_LENGTH,
-    USERNAME_REGEX,
-    ZERO_VALUE
+from utils.constants import DEFAULT_AMOUNT_VALUE
+from utils.functions import (
+    check_model_object,
+    check_recipes_limit_param,
+    create_or_update_recipe_tags_and_ingredients,
+    short_link_create
 )
-from utils.functions import recipes_limit_validate, value_in_model
+
+
+class Base64ImageField(serializers.ImageField):
+    """Поле для кодирования изображений."""
+
+    def to_internal_value(self, data):
+        """Проверяет запрос на обновление изображения в сериализаторе."""
+        if isinstance(data, str) and data.startswith('data:image'):
+            format, imgstr = data.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
+        return super().to_internal_value(data)
 
 
 class IngredientCreateSerializer(serializers.ModelSerializer):
@@ -110,13 +119,6 @@ class UserAvatarSerializer(serializers.ModelSerializer):
 class UserCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания новых пользователей."""
 
-    email = serializers.EmailField(required=True)
-    username = serializers.RegexField(
-        regex=USERNAME_REGEX,
-        required=True
-    )
-    first_name = serializers.CharField(required=True)
-    last_name = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
     class Meta:
@@ -129,34 +131,34 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'last_name',
             'password'
         )
-
-    def validate(self, data):
-        """Проверяет наличие пользователя с указанными данными."""
-        username = data.get('username')
-        email = data.get('email')
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        if User.objects.filter(username=username).exists():
-            raise serializers.ValidationError(
-                'Пользователь с таким username уже существует.'
-            )
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError(
-                'Пользователь с таким email уже существует.'
-            )
-        if len(first_name) > FIRST_NAME_MAX_LENGTH:
-            raise serializers.ValidationError(
-                'Слишком длинное имя.'
-            )
-        if len(last_name) > LAST_NAME_MAX_LENGTH:
-            raise serializers.ValidationError(
-                'Слишком длинная фамилия.'
-            )
-        if len(username) > USERNAME_MAX_LENGTH:
-            raise serializers.ValidationError(
-                'Слишком длинное имя пользователя.'
-            )
-        return data
+        extra_kwargs = {
+            'username': {
+                'error_messages': {
+                    'unique': 'Такое имя пользователя уже существует.',
+                    'max_length': (
+                        'Имя пользователя не должно быть длиннее 150 символов'
+                    ),
+                },
+            },
+            'email': {
+                'error_messages': {
+                    'unique': 'Пользователь с такой почтой уже существует.',
+                    'max_length': 'Почта не должна быть длиннее 150 символов',
+                },
+            },
+            'first_name': {
+                'error_messages': {
+                    'max_length': 'Имя не должно быть длиннее 150 символов',
+                },
+            },
+            'last_name': {
+                'error_messages': {
+                    'max_length': (
+                        'Фамилия не должна быть длиннее 150 символов'
+                    ),
+                },
+            },
+        }
 
     def create(self, validated_data):
         """Создаёт нового пользователя."""
@@ -169,20 +171,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
-
-
-class UserPasswordChangeSerializer(serializers.ModelSerializer):
-    """Сериализатор для изменения пароля пользователя."""
-
-    new_password = serializers.CharField(required=True)
-    current_password = serializers.CharField(required=True)
-
-    class Meta:
-        fields = (
-            'new_password',
-            'current_password',
-        )
-        model = User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -204,7 +192,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         """Проверяет текущую подписку на другого пользователя."""
-        return value_in_model(self, obj, Follow)
+        return check_model_object(self, obj, Follow)
 
 
 class RecipeMiniSerializer(serializers.ModelSerializer):
@@ -229,7 +217,6 @@ class RecipeMiniSerializer(serializers.ModelSerializer):
 class RecipeSerializer(serializers.ModelSerializer):
     """Сериализатор для создания рецептов."""
 
-    author = serializers.HiddenField(default=serializers.CurrentUserDefault())
     tags = serializers.PrimaryKeyRelatedField(
         queryset=Tag.objects.all(),
         many=True,
@@ -248,7 +235,6 @@ class RecipeSerializer(serializers.ModelSerializer):
             'name',
             'text',
             'cooking_time',
-            'author'
         )
         model = Recipe
 
@@ -279,66 +265,34 @@ class RecipeSerializer(serializers.ModelSerializer):
         all_ingredients = []
         for ingredient in ingredients:
             all_ingredients.append(ingredient.get('id'))
-            if len(set(all_ingredients)) != len(all_ingredients):
-                raise serializers.ValidationError(
-                    'Ингредиент используется в рецепте больше одного раза.'
-                )
-            if ingredient.get('amount') <= ZERO_VALUE:
+            if ingredient.get('amount', DEFAULT_AMOUNT_VALUE) <= 0:
                 raise serializers.ValidationError(
                     'Количество ингредиентов не должно быть меньше нуля.'
                 )
+        if len(set(all_ingredients)) != len(all_ingredients):
+            raise serializers.ValidationError(
+                'Ингредиент используется в рецепте больше одного раза.'
+            )
         return data
 
     def create(self, validated_data):
         """Создаёт новый рецепт."""
         tags = validated_data.pop('tags')
         ingredients = validated_data.pop('recipe_ingredients')
-        while True:
-            short_link = ''.join(
-                random.choices(
-                    SYMBOLS_FOR_LINK,
-                    k=SHORT_LINK_LENGTH
-                )
-            )
-            if not Recipe.objects.filter(
-                short_link=short_link
-            ).exists():
-                break
-        validated_data['short_link'] = short_link
+        validated_data['short_link'] = short_link_create()
+        validated_data['author'] = self.context.get('request').user
         recipe = Recipe.objects.create(**validated_data)
-        recipe.tags.set(tags)
-        for ingredient in ingredients:
-            RecipeIngredients.objects.create(
-                recipe=recipe,
-                ingredients=ingredient.get('id'),
-                amount=ingredient.get('amount')
-            )
+        create_or_update_recipe_tags_and_ingredients(tags, ingredients, recipe)
         return recipe
 
     def update(self, instance, validated_data):
         """Обновляет существующий рецепт."""
-        instance.image = validated_data.get('image', instance.image)
-        instance.name = validated_data.get('name', instance.name)
-        instance.text = validated_data.get('text', instance.text)
-        instance.cooking_time = validated_data.get(
-            'cooking_time',
-            instance.cooking_time
-        )
         tags = validated_data.pop('tags')
-        instance.tags.set(tags)
         ingredients = validated_data.pop('recipe_ingredients')
-        all_ingredients = []
-        for ingredient in ingredients:
-            ingredient_data = ingredient.get('id')
-            all_ingredients.append(ingredient_data)
-            RecipeIngredients.objects.get_or_create(
-                recipe=instance,
-                ingredients=ingredient_data,
-                amount=ingredient.get('amount')
-            )
-            instance.ingredients.set(all_ingredients)
-        instance.save()
-        return instance
+        create_or_update_recipe_tags_and_ingredients(
+            tags, ingredients, instance
+        )
+        return super().update(instance, validated_data)
 
 
 class RecipeReadSerializer(serializers.ModelSerializer):
@@ -376,11 +330,11 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         """Проверяет нахождение рецепта в избранном."""
-        return value_in_model(self, obj, Favorite)
+        return check_model_object(self, obj, Favorite)
 
     def get_is_in_shopping_cart(self, obj):
         """Проверяет нахождение рецепта в списке покупок."""
-        return value_in_model(self, obj, ShoppingCart)
+        return check_model_object(self, obj, ShoppingCart)
 
 
 class FollowPostDeleteSerializer(serializers.ModelSerializer):
@@ -390,14 +344,9 @@ class FollowPostDeleteSerializer(serializers.ModelSerializer):
     Вызывается для подписки на пользователя или удаления подписки.
     """
 
-    email = serializers.EmailField(read_only=True)
-    id = serializers.IntegerField(read_only=True)
-    username = serializers.CharField(read_only=True)
-    first_name = serializers.CharField(read_only=True)
-    last_name = serializers.CharField(read_only=True)
     is_subscribed = serializers.SerializerMethodField()
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
+    recipes_count = serializers.IntegerField(read_only=True, default=0)
     avatar = Base64ImageField(read_only=True)
 
     class Meta:
@@ -416,11 +365,7 @@ class FollowPostDeleteSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         """Проверяет текущую подписку на другого пользователя."""
-        return value_in_model(self, obj, Follow)
-
-    def get_recipes_count(self, obj):
-        """Вычисляет количество рецептов пользователей в подписках."""
-        return len(Recipe.objects.filter(author=obj))
+        return check_model_object(self, obj, Follow)
 
     def get_recipes(self, obj):
         """
@@ -429,7 +374,7 @@ class FollowPostDeleteSerializer(serializers.ModelSerializer):
         С помощью параметра 'recipes_limit' можно регулировать
         количество выводимых рецептов.
         """
-        return recipes_limit_validate(self, obj, RecipeMiniSerializer)
+        return check_recipes_limit_param(self, obj, RecipeMiniSerializer)
 
 
 class FollowReadSerializer(serializers.ModelSerializer):
@@ -449,7 +394,7 @@ class FollowReadSerializer(serializers.ModelSerializer):
         source='following.last_name', read_only=True)
     is_subscribed = serializers.SerializerMethodField()
     recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.SerializerMethodField()
+    recipes_count = serializers.IntegerField(read_only=True, default=0)
     avatar = Base64ImageField(source='following.avatar', read_only=True)
 
     class Meta:
@@ -468,11 +413,7 @@ class FollowReadSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         """Проверяет текущую подписку на другого пользователя."""
-        return value_in_model(self, obj.following, Follow)
-
-    def get_recipes_count(self, obj):
-        """Вычисляет количество рецептов пользователей в подписках."""
-        return len(Recipe.objects.filter(author=obj.following))
+        return check_model_object(self, obj.following, Follow)
 
     def get_recipes(self, obj):
         """
@@ -481,7 +422,7 @@ class FollowReadSerializer(serializers.ModelSerializer):
         С помощью параметра 'recipes_limit' можно регулировать
         количество выводимых рецептов.
         """
-        return recipes_limit_validate(
+        return check_recipes_limit_param(
             self,
             obj.following,
             RecipeMiniSerializer

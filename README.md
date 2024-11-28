@@ -19,6 +19,7 @@
 
 ## Содержание
 - [Технологии](https://github.com/TimyrPahomov/foodgram#технологии)
+- [Локальный запуск](https://github.com/TimyrPahomov/foodgram#локальный-запуск)
 - [Доступ к сайту](https://github.com/TimyrPahomov/foodgram#доступ-к-сайту)
 - [Автор](https://github.com/TimyrPahomov/foodgram#авторы)
 
@@ -28,6 +29,41 @@
 - [Django REST framework](https://www.django-rest-framework.org/)
 - [Djoser](https://djoser.readthedocs.io/en/latest/)
 - [Docker](https://docs.docker.com/)
+
+## Локальный запуск
+1. Необходимо клонировать репозиторий и перейти в него:
+
+```sh
+git clone https://github.com/TimyrPahomov/foodgram.git
+cd foodgram/
+```
+
+2. Далее нужно создать и активировать виртуальное окружение:
+
+```sh
+python -m venv venv
+source venv/Scripts/activate
+```
+
+3. Обновить пакетный менеджер и установить зависимости из файла _requirements.txt_:
+
+```sh
+python3 -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+4. Затем следует перейти в директорию с файлом _manage.py_ и выполнить миграции:
+
+```sh
+cd backend/
+python manage.py migrate
+```
+
+5. Наконец, запустить проект:
+
+```sh
+python manage.py runserver
+```
 
 ## Доступ к сайту
 Сайт доступен по адресу https://foodgram.gotdns.ch.

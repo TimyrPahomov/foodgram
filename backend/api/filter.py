@@ -3,7 +3,7 @@ from django_filters.fields import MultipleChoiceField
 from rest_framework import filters
 
 from recipes.models import Recipe
-from utils.functions import filter_value
+from utils.functions import check_value_existence
 
 
 class MultipleCharField(MultipleChoiceField):
@@ -32,7 +32,7 @@ class RecipeFilter(filter.FilterSet):
 
     is_favorited = filter.BooleanFilter(method='favorite_value')
     is_in_shopping_cart = filter.BooleanFilter(method='shopping_cart_value')
-    tags = MultipleCharFilter(field_name='tags__slug', lookup_expr="contains")
+    tags = MultipleCharFilter(field_name='tags__slug', lookup_expr='contains')
 
     class Meta:
         model = Recipe
@@ -40,14 +40,18 @@ class RecipeFilter(filter.FilterSet):
 
     def favorite_value(self, queryset, name, value):
         """Метод для получения избранных рецептов."""
-        return filter_value(self, queryset, 'favorite__user_id', value)
+        return check_value_existence(
+            self, queryset, 'favorites__user_id', value
+        )
 
     def shopping_cart_value(self, queryset, name, value):
         """Метод для получения рецептов из списка покупок."""
-        return filter_value(self, queryset, 'shoppingcart__user_id', value)
+        return check_value_existence(
+            self, queryset, 'shopping_carts__user_id', value
+        )
 
 
 class NameSearchFilter(filters.SearchFilter):
     """Фильтр для поиска ингредиента по названию."""
 
-    search_param = "name"
+    search_param = 'name'
