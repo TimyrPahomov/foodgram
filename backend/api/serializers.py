@@ -1,6 +1,7 @@
 import base64
 
 from django.core.files.base import ContentFile
+from django.db.models import Count
 from rest_framework import serializers
 
 from recipes.models import (
@@ -13,9 +14,14 @@ from recipes.models import (
     Tag,
     User
 )
-from utils.constants import DEFAULT_AMOUNT_VALUE
+from utils.constants import (
+    DEFAULT_AMOUNT_VALUE,
+    RECIPE_ALREADY_IN_FAVORITE_MESSAGE,
+    RECIPE_ALREADY_IN_SHOPPING_CART_MESSAGE,
+    SUBSCRIBE_TO_YOURSELF_MESSAGE,
+    USER_ALREADY_SUBSCRIBE_MESSAGE
+)
 from utils.functions import (
-    check_model_object,
     check_recipes_limit_param,
     create_or_update_recipe_tags_and_ingredients,
     short_link_create
@@ -32,6 +38,77 @@ class Base64ImageField(serializers.ImageField):
             ext = format.split('/')[-1]
             data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
         return super().to_internal_value(data)
+
+
+class UserRecipeCartSerializer(serializers.ModelSerializer):
+    """Общий сериализатор для работы со списком покупок и избранным."""
+
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all()
+    )
+    recipe = serializers.PrimaryKeyRelatedField(
+        queryset=Recipe.objects.all()
+    )
+
+    class Meta:
+        fields = (
+            'user',
+            'recipe'
+        )
+
+    def to_representation(self, instance):
+        """Возвращает данные в формате с вложенным сериализатором."""
+        serializer = RecipeMiniSerializer(
+            Recipe.objects.filter(id=instance.recipe_id).first(),
+            context={'request': self.context.get('request')}
+        )
+        return serializer.data
+
+
+class FavoriteSerializer(UserRecipeCartSerializer):
+    """Сериализатор для работы с избранными рецептами."""
+
+    class Meta:
+        fields = (
+            'user',
+            'recipe'
+        )
+        model = Favorite
+
+    def validate(self, data):
+        """Проверяет ингредиенты и теги на корректность заполнения."""
+        recipe = data.get('recipe')
+        user = data.get('user')
+        if Favorite.objects.filter(
+            user=user, recipe=recipe
+        ).exists():
+            raise serializers.ValidationError(
+                RECIPE_ALREADY_IN_FAVORITE_MESSAGE
+            )
+        return data
+
+
+class ShoppingCartSerializer(UserRecipeCartSerializer):
+    """Сериализатор для работы со списком покупок."""
+
+    class Meta:
+        fields = (
+            'user',
+            'recipe'
+        )
+        model = ShoppingCart
+
+    def validate(self, data):
+        """Проверяет ингредиенты и теги на корректность заполнения."""
+        recipe = data.get('recipe')
+        user = data.get('user')
+        if ShoppingCart.objects.filter(
+            user=user, recipe=recipe
+        ).exists():
+            raise serializers.ValidationError(
+                RECIPE_ALREADY_IN_SHOPPING_CART_MESSAGE
+            )
+        return data
 
 
 class IngredientCreateSerializer(serializers.ModelSerializer):
@@ -190,7 +267,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         """Проверяет текущую подписку на другого пользователя."""
-        return check_model_object(self, obj, Follow)
+        request = self.context.get('request')
+        user = request.user
+        return False if user.id is None else Follow.objects.filter(
+            user=user, following=obj
+        ).exists()
 
 
 class RecipeMiniSerializer(serializers.ModelSerializer):
@@ -328,51 +409,19 @@ class RecipeReadSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         """Проверяет нахождение рецепта в избранном."""
-        return check_model_object(self, obj, Favorite)
+        request = self.context.get('request')
+        user = request.user
+        return False if user.id is None else Favorite.objects.filter(
+            user=user, recipe=obj
+        ).exists()
 
     def get_is_in_shopping_cart(self, obj):
         """Проверяет нахождение рецепта в списке покупок."""
-        return check_model_object(self, obj, ShoppingCart)
-
-
-class FollowPostDeleteSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для работы с подписками.
-
-    Вызывается для подписки на пользователя или удаления подписки.
-    """
-
-    is_subscribed = serializers.SerializerMethodField()
-    recipes = serializers.SerializerMethodField()
-    recipes_count = serializers.IntegerField(read_only=True, default=0)
-    avatar = Base64ImageField(read_only=True)
-
-    class Meta:
-        fields = (
-            'email',
-            'id',
-            'username',
-            'first_name',
-            'last_name',
-            'is_subscribed',
-            'recipes',
-            'recipes_count',
-            'avatar',
-        )
-        model = User
-
-    def get_is_subscribed(self, obj):
-        """Проверяет текущую подписку на другого пользователя."""
-        return check_model_object(self, obj, Follow)
-
-    def get_recipes(self, obj):
-        """
-        Возвращает список рецептов пользователей в подписках.
-
-        С помощью параметра 'recipes_limit' можно регулировать
-        количество выводимых рецептов.
-        """
-        return check_recipes_limit_param(self, obj, RecipeMiniSerializer)
+        request = self.context.get('request')
+        user = request.user
+        return False if user.id is None else ShoppingCart.objects.filter(
+            user=user, recipe=obj
+        ).exists()
 
 
 class FollowReadSerializer(serializers.ModelSerializer):
@@ -411,7 +460,11 @@ class FollowReadSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         """Проверяет текущую подписку на другого пользователя."""
-        return check_model_object(self, obj.following, Follow)
+        request = self.context.get('request')
+        user = request.user
+        return False if user.id is None else Follow.objects.filter(
+            user=user, following=obj.following
+        ).exists()
 
     def get_recipes(self, obj):
         """
@@ -425,3 +478,43 @@ class FollowReadSerializer(serializers.ModelSerializer):
             obj.following,
             RecipeMiniSerializer
         )
+
+
+class FollowSerializer(serializers.ModelSerializer):
+    """Сериализатор для работы с подписками пользователя."""
+
+    user = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all()
+    )
+    following = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all()
+    )
+
+    class Meta:
+        fields = (
+            'user',
+            'following'
+        )
+        model = Follow
+
+    def to_representation(self, instance):
+        """Возвращает данные в формате с вложенным сериализатором."""
+        serializer = FollowReadSerializer(
+            Follow.objects.filter(following_id=instance.following_id).annotate(
+                recipes_count=Count('following__recipes')
+            ).first(),
+            context={'request': self.context.get('request')}
+        )
+        return serializer.data
+
+    def validate(self, data):
+        """Проверяет подписки на корректность заполнения."""
+        following = data.get('following')
+        user = data.get('user')
+        if Follow.objects.filter(
+            user=user, following=following
+        ).exists():
+            raise serializers.ValidationError(USER_ALREADY_SUBSCRIBE_MESSAGE)
+        if following.id == user.id:
+            raise serializers.ValidationError(SUBSCRIBE_TO_YOURSELF_MESSAGE)
+        return data

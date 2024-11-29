@@ -1,10 +1,12 @@
+import io
 import random
 
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework import serializers, status
 from rest_framework.response import Response
 
-from recipes.models import Follow, Recipe, RecipeIngredients
+from recipes.models import Recipe, RecipeIngredients
 from utils.constants import (
     DEFAULT_RECIPES_LIMIT,
     SHORT_LINK_LENGTH,
@@ -55,44 +57,22 @@ def check_recipes_limit_param(self, obj, serializer):
     return serializer.data
 
 
-def check_model_object(self, obj, model):
-    """Проверяет наличие объекта в модели."""
-    request = self.context.get('request')
-    user = request.user
-    if user.id is None:
-        return False
-    if isinstance(model(), Follow):
-        return model.objects.filter(
-            user=user, following=obj
-        ).exists()
-    return model.objects.filter(
-        user=user, recipe=obj
-    ).exists()
-
-
 def add_object(
-    model,
     request,
-    model_object,
+    pk,
     serializer,
-    error_message
 ):
     """Добавляет запись в модель."""
     user = request.user
-    if model.objects.filter(
-        user=user, recipe=model_object
-    ).exists():
-        return Response(
-            error_message,
-            status.HTTP_400_BAD_REQUEST
-        )
-    model.objects.create(
-        user=user, recipe=model_object
-    )
     serializer = serializer(
-        model_object,
-        context={'request': request}
+        context={'request': request},
+        data={
+            'user': user.id,
+            'recipe': pk,
+        }
     )
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
     return Response(
         data=serializer.data,
         status=status.HTTP_201_CREATED
@@ -102,20 +82,17 @@ def add_object(
 def remove_object(
     model,
     user,
-    model_object,
+    pk,
     error_message
 ):
     """Удаляет запись из модели."""
-    if not model.objects.filter(
-        user=user, recipe=model_object
-    ).exists():
+    if model.objects.filter(
+        user=user, recipe_id=pk
+    ).delete()[0] == 0:
         return Response(
             error_message,
             status.HTTP_400_BAD_REQUEST
         )
-    model.objects.get(
-        user=user, recipe=model_object
-    ).delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -143,6 +120,20 @@ def short_link_create():
         ).exists():
             break
     return short_link
+
+
+def shopping_cart_file_create(ingredients):
+    """Создаёт файл со списком покупок."""
+    text_buffer = io.StringIO()
+    for ingredient in ingredients:
+        text_buffer.write(
+            '{} ({}) - {}\n'.format(
+                ingredient.name,
+                ingredient.measurement_unit,
+                ingredient.total_amount
+            )
+        )
+    return HttpResponse(text_buffer.getvalue(), content_type='text/plain')
 
 
 def create_or_update_recipe_tags_and_ingredients(tags, ingredients, recipe):
