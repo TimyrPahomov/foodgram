@@ -13,7 +13,7 @@ from utils.constants import (
 )
 
 
-def check_value_existence(self, queryset, name, value):
+def filter_queryset(self, queryset, name, value):
     """Проверяет наличие объекта в избранном или списке покупок."""
     if not value:
         return queryset
@@ -36,18 +36,16 @@ def check_recipes_limit_param(self, obj, serializer):
         DEFAULT_RECIPES_LIMIT
     )
     recipes = Recipe.objects.filter(author=obj)
-    if recipes_limit:
-        try:
-            recipes_limit = int(recipes_limit)
-        except ValueError:
-            raise serializers.ValidationError(
-                'recipes_limit должен быть целым числом.'
-            )
-        if recipes_limit <= 0:
-            raise serializers.ValidationError(
-                'recipes_limit должен быть больше нуля.'
-            )
-        recipes = recipes[:recipes_limit]
+    if not recipes_limit.isnumeric():
+        raise serializers.ValidationError(
+            'recipes_limit должен быть целым числом.'
+        )
+    recipes_limit = int(recipes_limit)
+    if recipes_limit <= 0:
+        raise serializers.ValidationError(
+            'recipes_limit должен быть больше нуля.'
+        )
+    recipes = recipes[:recipes_limit]
     serializer = serializer(
         recipes,
         read_only=True,

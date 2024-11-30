@@ -3,7 +3,7 @@ from django_filters.fields import MultipleChoiceField
 from rest_framework import filters
 
 from recipes.models import Recipe
-from utils.functions import check_value_existence
+from utils.functions import filter_queryset
 
 
 class MultipleCharField(MultipleChoiceField):
@@ -40,13 +40,13 @@ class RecipeFilter(filter.FilterSet):
 
     def favorite_value(self, queryset, name, value):
         """Метод для получения избранных рецептов."""
-        return check_value_existence(
+        return filter_queryset(
             self, queryset, 'favorites__user_id', value
         )
 
     def shopping_cart_value(self, queryset, name, value):
         """Метод для получения рецептов из списка покупок."""
-        return check_value_existence(
+        return filter_queryset(
             self, queryset, 'shopping_carts__user_id', value
         )
 
