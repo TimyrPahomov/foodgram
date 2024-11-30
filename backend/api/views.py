@@ -1,4 +1,5 @@
 from django.db.models import Count, Sum
+from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from djoser.views import UserViewSet
 from rest_framework import permissions, status, viewsets
@@ -92,6 +93,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeReadSerializer
         return RecipeSerializer
 
+    @property
+    def user_not_exists(self):
+        if not self.request.user.is_authenticated:
+            return True
+        return False
+
     @action(
         detail=True, methods=['post', 'delete'], url_path=SHOPPING_CART_PATH,
         permission_classes=(permissions.IsAuthenticated,)
@@ -117,7 +124,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ingredients = Ingredient.objects.filter(
             recipes__shopping_carts__user=self.request.user
         ).annotate(total_amount=Sum('recipe_ingredients__amount'))
-        return shopping_cart_file_create(ingredients)
+        text_buffer = shopping_cart_file_create(ingredients)
+        return HttpResponse(text_buffer.getvalue(), content_type='text/plain')
 
     @action(
         detail=True, methods=['post', 'delete'], url_path=FAVORITE_PATH,
@@ -158,6 +166,7 @@ class FoodgramUserViewSet(UserViewSet):
     filter_backends = (DjangoFilterBackend,)
 
     def get_permissions(self):
+        """Возвращает разрешение в зависимости от action метода."""
         if self.action in [
             'me', 'set_password', 'subscribe', 'subscriptions', 'avatar'
         ]:
@@ -166,6 +175,12 @@ class FoodgramUserViewSet(UserViewSet):
             permission_classes = (permissions.AllowAny,)
 
         return [permission() for permission in permission_classes]
+
+    @property
+    def user_not_exists(self):
+        if not self.request.user.is_authenticated:
+            return True
+        return False
 
     @action(
         detail=True, methods=['post', 'delete'], url_path=SUBSCRIBE_PATH
@@ -187,9 +202,10 @@ class FoodgramUserViewSet(UserViewSet):
                 data=serializer.data,
                 status=status.HTTP_201_CREATED
             )
-        if Follow.objects.filter(
+        number_of_deleted_object, *deleted_object = Follow.objects.filter(
             user=user, following_id=id
-        ).delete()[0] == 0:
+        ).delete()
+        if number_of_deleted_object == 0:
             return Response(
                 USER_NOT_SUBSCRIBE_MESSAGE,
                 status.HTTP_400_BAD_REQUEST

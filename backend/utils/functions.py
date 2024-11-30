@@ -1,7 +1,6 @@
 import io
 import random
 
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -86,9 +85,10 @@ def remove_object(
     error_message
 ):
     """Удаляет запись из модели."""
-    if model.objects.filter(
+    number_of_deleted_object, *deleted_object = model.objects.filter(
         user=user, recipe_id=pk
-    ).delete()[0] == 0:
+    ).delete()
+    if number_of_deleted_object == 0:
         return Response(
             error_message,
             status.HTTP_400_BAD_REQUEST
@@ -97,7 +97,7 @@ def remove_object(
 
 
 def redirection(request, short_link):
-    """Перенаправляет пользователя на рецепт по короткой ссылке"""
+    """Перенаправляет пользователя на рецепт по короткой ссылке."""
     recipe = get_object_or_404(Recipe, short_link=short_link)
     return redirect(
         request.build_absolute_uri(
@@ -133,11 +133,11 @@ def shopping_cart_file_create(ingredients):
                 ingredient.total_amount
             )
         )
-    return HttpResponse(text_buffer.getvalue(), content_type='text/plain')
+    return text_buffer
 
 
 def create_or_update_recipe_tags_and_ingredients(tags, ingredients, recipe):
-    """Добавляет теги и ингредиенты в рецепт"""
+    """Добавляет теги и ингредиенты в рецепт."""
     recipe.tags.set(tags)
     all_ingredients = []
     for ingredient in ingredients:
