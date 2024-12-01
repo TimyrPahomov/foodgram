@@ -93,12 +93,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return RecipeReadSerializer
         return RecipeSerializer
 
-    @property
-    def user_not_exists(self):
-        if not self.request.user.is_authenticated:
-            return True
-        return False
-
     @action(
         detail=True, methods=['post', 'delete'], url_path=SHOPPING_CART_PATH,
         permission_classes=(permissions.IsAuthenticated,)
@@ -175,12 +169,6 @@ class FoodgramUserViewSet(UserViewSet):
             permission_classes = (permissions.AllowAny,)
 
         return [permission() for permission in permission_classes]
-
-    @property
-    def user_not_exists(self):
-        if not self.request.user.is_authenticated:
-            return True
-        return False
 
     @action(
         detail=True, methods=['post', 'delete'], url_path=SUBSCRIBE_PATH

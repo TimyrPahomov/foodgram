@@ -21,7 +21,6 @@ class UserRecipeAdmin(admin.ModelAdmin):
 
     list_display = ('user', 'recipe')
     search_fields = ('user__username', 'recipe__name')
-    list_filter = ('user',)
 
 
 @admin.register(Ingredient)
@@ -52,14 +51,27 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display = (
         'name', 'author', 'cooking_time', 'in_favorite_count'
     )
-    list_filter = ('author', 'tags')
+    list_filter = ('tags',)
     search_fields = ('name', 'author__first_name', 'author__last_name')
     inlines = (RecipeIngredientsInline, RecipeTagsInline)
 
     @admin.display(description='Количество добавлений в избранное.')
     def in_favorite_count(self, obj):
         """Возвращает количество добавлений рецепта в избранное."""
-        return len(Favorite.objects.filter(recipe_id=obj.id))
+        return Favorite.objects.filter(recipe_id=obj.id).count()
+
+    def get_queryset(self, request):
+        """
+        Возвращает список рецептов.
+
+        Осуществляет предзагрузку связанных объектов из моделей User,
+        Tag и Ingredient.
+        """
+        return Recipe.objects.select_related(
+            'author'
+        ).prefetch_related(
+            'tags', 'ingredients'
+        )
 
 
 @admin.register(Tag)
@@ -67,13 +79,22 @@ class TagAdmin(admin.ModelAdmin):
     """Класс для представления тегов в Админ-зоне."""
 
     list_display = ('name', 'slug')
-    list_filter = ('name',)
-    search_fields = ('slug',)
+    search_fields = ('name', 'slug',)
 
 
 @admin.register(Favorite)
 class FavoriteAdmin(UserRecipeAdmin):
     """Класс для представления избранного в Админ-зоне."""
+
+    def get_queryset(self, request):
+        """
+        Возвращает избранные рецепты.
+
+        Осуществляет предзагрузку связанных объектов из моделей User и Recipe.
+        """
+        return ShoppingCart.objects.select_related(
+            'user', 'recipe'
+        )
 
 
 @admin.register(Follow)
@@ -81,10 +102,29 @@ class FollowAdmin(admin.ModelAdmin):
     """Класс для представления подписок в Админ-зоне."""
 
     list_display = ('user', 'following')
-    search_fields = ('user__username', 'following__username')
-    list_filter = ('user', 'following')
+    search_fields = ('user__first_name', 'following__first_name')
+
+    def get_queryset(self, request):
+        """
+        Возвращает подписки пользователя.
+
+        Осуществляет предзагрузку связанных объектов из модели User.
+        """
+        return Follow.objects.select_related(
+            'user', 'following'
+        )
 
 
 @admin.register(ShoppingCart)
 class ShoppingCartAdmin(UserRecipeAdmin):
     """Класс для представления списка покупок в Админ-зоне."""
+
+    def get_queryset(self, request):
+        """
+        Возвращает список покупок.
+
+        Осуществляет предзагрузку связанных объектов из моделей User и Recipe.
+        """
+        return ShoppingCart.objects.select_related(
+            'user', 'recipe'
+        )
