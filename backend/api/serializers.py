@@ -269,10 +269,11 @@ class UserSerializer(serializers.ModelSerializer):
         """Проверяет текущую подписку на другого пользователя."""
         request = self.context.get('request')
         user = request.user
-        return (False if not user.is_authenticated
-                else Follow.objects .filter(
-                    user=user, following=obj
-                ).exists())
+        if user.is_authenticated and Follow.objects.filter(
+            user=user, following=obj
+        ).exists():
+            return True
+        return False
 
 
 class RecipeMiniSerializer(serializers.ModelSerializer):
@@ -412,19 +413,21 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         """Проверяет нахождение рецепта в избранном."""
         request = self.context.get('request')
         user = request.user
-        return (False if not user.is_authenticated
-                else Favorite.objects.filter(
-                    user=user, recipe=obj
-                ).exists())
+        if user.is_authenticated and Favorite.objects.filter(
+            user=user, recipe=obj
+        ).exists():
+            return True
+        return False
 
     def get_is_in_shopping_cart(self, obj):
         """Проверяет нахождение рецепта в списке покупок."""
         request = self.context.get('request')
         user = request.user
-        return (False if not user.is_authenticated
-                else ShoppingCart.objects.filter(
-                    user=user, recipe=obj
-                ).exists())
+        if user.is_authenticated and ShoppingCart.objects.filter(
+            user=user, recipe=obj
+        ).exists():
+            return True
+        return False
 
 
 class FollowReadSerializer(serializers.ModelSerializer):
@@ -465,10 +468,11 @@ class FollowReadSerializer(serializers.ModelSerializer):
         """Проверяет текущую подписку на другого пользователя."""
         request = self.context.get('request')
         user = request.user
-        return (False if not user.is_authenticated
-                else Follow.objects.filter(
-                    user=user, following=obj.following
-                ).exists())
+        if user.is_authenticated and Follow.objects.filter(
+            user=user, following=obj.following
+        ).exists():
+            return True
+        return False
 
     def get_recipes(self, obj):
         """

@@ -10,5 +10,5 @@ class FoodgramUserAdmin(UserAdmin):
 
     model = FoodgramUser
     list_display = ('first_name', 'last_name', 'username', 'email')
-    search_fields = ('first_name', 'email')
+    search_fields = ('first_name', 'last_name', 'username', 'email')
     list_display_links = ('first_name', 'username')

@@ -137,13 +137,16 @@ def shopping_cart_file_create(ingredients):
 def create_or_update_recipe_tags_and_ingredients(tags, ingredients, recipe):
     """Добавляет теги и ингредиенты в рецепт."""
     recipe.tags.set(tags)
+    recipeingredients = []
     all_ingredients = []
     for ingredient in ingredients:
         ingredient_data = ingredient.get('id')
         all_ingredients.append(ingredient_data)
-        RecipeIngredients.objects.create(
+        recipeingredient = RecipeIngredients(
             recipe=recipe,
             ingredients=ingredient_data,
             amount=ingredient.get('amount')
         )
+        recipeingredients.append(recipeingredient)
+    RecipeIngredients.objects.bulk_create(recipeingredients)
     recipe.ingredients.set(all_ingredients)

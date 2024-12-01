@@ -67,7 +67,7 @@ class RecipeAdmin(admin.ModelAdmin):
         Осуществляет предзагрузку связанных объектов из моделей User,
         Tag и Ingredient.
         """
-        return Recipe.objects.select_related(
+        return super().get_queryset(request).select_related(
             'author'
         ).prefetch_related(
             'tags', 'ingredients'
@@ -92,7 +92,7 @@ class FavoriteAdmin(UserRecipeAdmin):
 
         Осуществляет предзагрузку связанных объектов из моделей User и Recipe.
         """
-        return ShoppingCart.objects.select_related(
+        return super().get_queryset(request).select_related(
             'user', 'recipe'
         )
 
@@ -110,7 +110,7 @@ class FollowAdmin(admin.ModelAdmin):
 
         Осуществляет предзагрузку связанных объектов из модели User.
         """
-        return Follow.objects.select_related(
+        return super().get_queryset(request).select_related(
             'user', 'following'
         )
 
@@ -125,6 +125,6 @@ class ShoppingCartAdmin(UserRecipeAdmin):
 
         Осуществляет предзагрузку связанных объектов из моделей User и Recipe.
         """
-        return ShoppingCart.objects.select_related(
+        return super().get_queryset(request).select_related(
             'user', 'recipe'
         )
