@@ -20,8 +20,7 @@
 ## Содержание
 - [Технологии](https://github.com/TimyrPahomov/foodgram#технологии)
 - [Локальный запуск](https://github.com/TimyrPahomov/foodgram#локальный-запуск)
-- [Доступ к сайту](https://github.com/TimyrPahomov/foodgram#доступ-к-сайту)
-- [Автор](https://github.com/TimyrPahomov/foodgram#авторы)
+- [Автор](https://github.com/TimyrPahomov/foodgram#автор)
 
 ## Технологии
 - [Python](https://www.python.org/)
