@@ -65,13 +65,5 @@ python manage.py migrate
 python manage.py runserver
 ```
 
-## Доступ к сайту
-Сайт доступен по адресу https://foodgram.gotdns.ch или ip 89.169.167.173.
-
 ## Автор
 [Пахомов Тимур](<https://github.com/TimyrPahomov/>)
-
-Данные для входа:
-username: admin
-email: admin@bk.ru
-password: 1q2w3e4r!
